@@ -1,0 +1,32 @@
+{
+  "name": "watch-obj",
+  "version": "2.0.0",
+  "description": "高度可定制的对象监控工具，支持函数参数修改、返回值修改、函数替换、属性访问自定义等高级功能",
+  "author": "dzqdzq",
+  "main": "index.js",
+  "type":"module",
+  "keywords": [
+    "proxy",
+    "monitor",
+    "watch",
+    "intercept",
+    "debug",
+    "performance",
+    "frida-like",
+    "object-monitoring",
+    "function-replacement",
+    "argument-modification"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dzqdzq/watchObj.git"
+  },
+  "bin": {
+    "watch-obj": "bin/cmd.js",
+    "watchObj": "bin/cmd.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "clipboardy": "^3.0.0"
+  }
+}
