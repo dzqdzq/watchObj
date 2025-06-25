@@ -138,92 +138,6 @@ class WatchManager {
   }
 
   /**
-   * 用代理覆盖原始对象的所有属性和方法
-   * @private
-   */
-  _replaceObjectWithProxy(target, proxy) {
-    // 获取原始对象的所有属性描述符（在删除之前）
-    const originalDescriptors = new Map();
-    const allKeys = [...Object.getOwnPropertyNames(target), ...Object.getOwnPropertySymbols(target)];
-    
-    for (const key of allKeys) {
-      if (key === 'constructor') continue;
-      const descriptor = Object.getOwnPropertyDescriptor(target, key);
-      if (descriptor) {
-        originalDescriptors.set(key, descriptor);
-      }
-    }
-    
-    // 清除原始对象的所有属性
-    for (const key of allKeys) {
-      if (key === 'constructor') continue;
-      try {
-        delete target[key];
-      } catch (e) {
-        // 某些属性可能无法删除，忽略错误
-      }
-    }
-    
-    // 为每个原始属性创建转发器，直接转发到代理对象
-    for (const [key, descriptor] of originalDescriptors) {
-      try {
-        if (typeof descriptor.value === 'function') {
-          // 对于方法，创建一个转发函数
-          Object.defineProperty(target, key, {
-            value: function(...args) {
-              // 直接调用代理对象上的方法
-              const proxyMethod = Reflect.get(proxy, key, proxy);
-              if (typeof proxyMethod === 'function') {
-                return Reflect.apply(proxyMethod, proxy, args);
-              }
-              return proxyMethod;
-            },
-            writable: descriptor.writable,
-            enumerable: descriptor.enumerable,
-            configurable: descriptor.configurable
-          });
-        } else if (descriptor.get || descriptor.set) {
-          // 对于访问器属性，创建转发的getter/setter
-          Object.defineProperty(target, key, {
-            get() {
-              return Reflect.get(proxy, key, proxy);
-            },
-            set(value) {
-              return Reflect.set(proxy, key, value, proxy);
-            },
-            enumerable: descriptor.enumerable,
-            configurable: descriptor.configurable
-          });
-        } else {
-          // 对于数据属性，创建转发的getter/setter
-          Object.defineProperty(target, key, {
-            get() {
-              return Reflect.get(proxy, key, proxy);
-            },
-            set(value) {
-              return Reflect.set(proxy, key, value, proxy);
-            },
-            enumerable: descriptor.enumerable,
-            configurable: descriptor.configurable
-          });
-        }
-      } catch (e) {
-        // 某些属性可能无法定义，忽略错误
-        console.warn(`Failed to define property ${String(key)}:`, e.message);
-      }
-    }
-    
-    // 设置原型为代理的原型
-    try {
-      Object.setPrototypeOf(target, Object.getPrototypeOf(proxy));
-    } catch (e) {
-      // 某些对象的原型可能无法修改，忽略错误
-    }
-  }
-  
-
-
-  /**
    * 添加全局拦截器
    * @param {Function} interceptor 拦截器函数
    */
@@ -283,6 +197,16 @@ class WatchManager {
       // 参数和返回值修改
       modifyArgs: null,       // 修改函数参数
       modifyResult: null,     // 修改函数返回值
+      
+      // 其他操作结果修改
+      modifyGetResult: null,  // 修改属性访问结果
+      modifySetResult: null,  // 修改属性设置结果
+      modifyHasResult: null,  // 修改属性存在检查结果
+      modifyOwnKeysResult: null, // 修改自有属性列表结果
+      modifyDescriptorResult: null, // 修改属性描述符结果
+      modifyPrototypeResult: null, // 修改原型获取结果
+      modifyDeleteResult: null, // 修改属性删除结果
+      modifyDefineResult: null,  // 修改属性定义结果
       
       // 函数替换
       replaceFunction: null,  // 完全替换函数实现
@@ -494,7 +418,12 @@ class WatchManager {
           }
         }
 
-        const value = Reflect.get(target, property, receiver);
+        let value = Reflect.get(target, property, receiver);
+        
+        // 修改属性访问结果
+        if (config.modifyGetResult) {
+          value = config.modifyGetResult({ ...context, value }) || value;
+        }
         
         const afterContext = { ...context, value };
         this._executeHook(config.onAfter, afterContext);
@@ -545,7 +474,21 @@ class WatchManager {
           }
         }
 
-        const success = Reflect.set(target, property, value, receiver);
+        // 检查是否应该阻止设置
+        let shouldSet = true;
+        if (config.modifySetResult) {
+          // 先预测设置结果
+          const predictedResult = true; // 假设设置会成功
+          const modifiedResult = config.modifySetResult({ ...context, success: predictedResult });
+          shouldSet = modifiedResult !== false;
+        }
+        
+        let success;
+        if (shouldSet) {
+          success = Reflect.set(target, property, value, receiver);
+        } else {
+          success = false; // 阻止设置
+        }
         
         const afterContext = { ...context, success };
         this._executeHook(config.onAfter, afterContext);
@@ -569,7 +512,22 @@ class WatchManager {
       this._executeHook(config.onDefine, context);
       this._conditionalDebugger(config.debug, context);
       
-      const result = Reflect.defineProperty(target, property, descriptor);
+      // 检查是否应该阻止定义
+      let shouldDefine = true;
+      if (config.modifyDefineResult) {
+        // 先预测定义结果
+        const predictedResult = true; // 假设定义会成功
+        const modifiedResult = config.modifyDefineResult({ ...context, success: predictedResult });
+        shouldDefine = modifiedResult !== false;
+      }
+      
+      let result;
+      if (shouldDefine) {
+        result = Reflect.defineProperty(target, property, descriptor);
+      } else {
+        result = false; // 阻止定义
+      }
+      
       this._executeHook(config.onAfter, { ...context, success: result });
       this._log('debug', 'Property defined', { ...context, success: result });
       return result;
@@ -584,7 +542,22 @@ class WatchManager {
       this._executeHook(config.onDelete, context);
       this._conditionalDebugger(config.debug, context);
       
-      const result = Reflect.deleteProperty(target, property);
+      // 检查是否应该阻止删除
+      let shouldDelete = true;
+      if (config.modifyDeleteResult) {
+        // 先预测删除结果
+        const predictedResult = true; // 假设删除会成功
+        const modifiedResult = config.modifyDeleteResult({ ...context, success: predictedResult });
+        shouldDelete = modifiedResult !== false;
+      }
+      
+      let result;
+      if (shouldDelete) {
+        result = Reflect.deleteProperty(target, property);
+      } else {
+        result = false; // 阻止删除
+      }
+      
       this._executeHook(config.onAfter, { ...context, success: result });
       this._log('debug', 'Property deleted', { ...context, success: result });
       return result;
@@ -597,7 +570,13 @@ class WatchManager {
       this._executeHook(config.onBefore, context);
       this._executeHook(config.onHas, context);
       
-      const result = Reflect.has(target, property);
+      let result = Reflect.has(target, property);
+      
+      // 修改属性存在检查结果
+      if (config.modifyHasResult) {
+        result = config.modifyHasResult({ ...context, exists: result }) || result;
+      }
+      
       this._executeHook(config.onAfter, { ...context, exists: result });
       this._log('debug', 'Property existence checked', { ...context, exists: result });
       return result;
@@ -607,7 +586,17 @@ class WatchManager {
   // 简化的其他拦截器实现
   _createOwnKeysInterceptor(target, config) {
     return (target) => {
-      const result = Reflect.ownKeys(target);
+      const context = this._createContext('ownKeys', { target });
+      this._executeHook(config.onBefore, context);
+      
+      let result = Reflect.ownKeys(target);
+      
+      // 修改自有属性列表结果
+      if (config.modifyOwnKeysResult) {
+        result = config.modifyOwnKeysResult({ ...context, keys: result }) || result;
+      }
+      
+      this._executeHook(config.onAfter, { ...context, keys: result });
       this._log('debug', 'Own keys accessed', { target, keys: result });
       return result;
     };
@@ -615,7 +604,17 @@ class WatchManager {
 
   _createGetOwnPropertyDescriptorInterceptor(target, config) {
     return (target, property) => {
-      const result = Reflect.getOwnPropertyDescriptor(target, property);
+      const context = this._createContext('getOwnPropertyDescriptor', { target, property });
+      this._executeHook(config.onBefore, context);
+      
+      let result = Reflect.getOwnPropertyDescriptor(target, property);
+      
+      // 修改属性描述符结果
+      if (config.modifyDescriptorResult) {
+        result = config.modifyDescriptorResult({ ...context, descriptor: result }) || result;
+      }
+      
+      this._executeHook(config.onAfter, { ...context, descriptor: result });
       this._log('debug', 'Property descriptor accessed', { target, property, descriptor: result });
       return result;
     };
@@ -623,7 +622,17 @@ class WatchManager {
 
   _createGetPrototypeOfInterceptor(target, config) {
     return (target) => {
-      const result = Reflect.getPrototypeOf(target);
+      const context = this._createContext('getPrototypeOf', { target });
+      this._executeHook(config.onBefore, context);
+      
+      let result = Reflect.getPrototypeOf(target);
+      
+      // 修改原型获取结果
+      if (config.modifyPrototypeResult) {
+        result = config.modifyPrototypeResult({ ...context, prototype: result }) || result;
+      }
+      
+      this._executeHook(config.onAfter, { ...context, prototype: result });
       this._log('debug', 'Prototype accessed', { target, prototype: result });
       return result;
     };
