@@ -1,32 +1,27 @@
 {
-  "name": "watch-obj",
+  "name": "watchobj",
   "version": "2.0.0",
-  "description": "高度可定制的对象监控工具，支持函数参数修改、返回值修改、函数替换、属性访问自定义等高级功能",
+  "description": "监控对象行为",
   "author": "dzqdzq",
   "main": "index.js",
-  "type":"module",
+  "type": "module",
   "keywords": [
     "proxy",
     "monitor",
     "watch",
-    "intercept",
-    "debug",
-    "performance",
-    "frida-like",
-    "object-monitoring",
-    "function-replacement",
-    "argument-modification"
+    "watchobj",
+    "监控",
+    "dzqdzq"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/dzqdzq/watchObj.git"
+    "url": "git+https://github.com/dzqdzq/watchObj.git"
   },
   "bin": {
-    "watch-obj": "bin/cmd.js",
-    "watchObj": "bin/cmd.js"
+    "watchobj": "bin/cmd.js"
   },
   "license": "MIT",
   "dependencies": {
-    "clipboardy": "^3.0.0"
+    "clipboardy": "^4.0.0"
   }
 }
