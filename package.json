@@ -1,6 +1,6 @@
 {
   "name": "watchobj",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "监控对象行为",
   "author": "dzqdzq",
   "main": "index.js",
@@ -13,6 +13,7 @@
     "监控",
     "dzqdzq"
   ],
+  "scripts": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dzqdzq/watchObj.git"

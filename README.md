@@ -11,7 +11,7 @@
 ## 安装
 
 ```bash
-npm install watchobj
+npm install watchobj -g
 ```
 
 ## 使用方法
