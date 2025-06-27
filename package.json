@@ -1,6 +1,6 @@
 {
   "name": "watchobj",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "监控对象行为",
   "author": "dzqdzq",
   "main": "index.js",

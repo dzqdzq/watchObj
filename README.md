@@ -1,6 +1,7 @@
 # WatchObj - 对象监控工具
 
-一个功能强大的 JavaScript 对象监控工具，基于 Proxy 实现
+一个功能强大的 JavaScript 对象监控工具，基于 Proxy 实现<br/>
+属性级别的监控工具: npm i -g watchprop
 
 ## ✨ 核心特性
 
@@ -11,7 +12,7 @@
 ## 安装
 
 ```bash
-npm install watchobj -g
+npm i -g watchobj
 ```
 
 ## 使用方法
